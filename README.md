@@ -288,12 +288,6 @@ MIT
 
 ---
 
-## ⭐ If you like this project
-
-Give it a ⭐ on GitHub — it helps a lot!
-
----
-
 ## 🧩 Final Note
 
 This isn’t just a bridge.
