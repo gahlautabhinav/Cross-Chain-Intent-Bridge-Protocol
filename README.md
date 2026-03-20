@@ -1,292 +1,301 @@
-# 🌐 Cross‑Chain Intent Bridge Protocol  
-## A Stellar ↔ Polygon SDK for Intent‑Driven Cross‑Chain Actions
+# 🌐 Cross-Chain Intent Bridge Protocol
 
-This repository implements a **cross‑chain intent bridge protocol** as a **light SDK wrapper** that:
-- Locks assets on **Stellar** (via `bridgeManager.mjs`).  
-- Executes intent‑based actions on **Polygon (Amoy)**, such as:
-  - Bridging (minting wrapped XLM).  
-  - Providing liquidity in a pool.  
-  - Staking wrapped XLM.  
+### ⚡ A Stellar ↔ Polygon SDK for Intent-Driven Cross-Chain Execution
 
-You can think of it as a **Stellar SDK‑style extension** that:
-- Doesn’t yet expose finalized helpers like `createIntent`, `getIntentStatus`, or `bridgeToEVM`,  
-- But **will** evolve into a full, stable SDK once the API and patterns are solidified.
-
-> ⚠️ This package is **not published to npm** yet.  
-> It lives only in this GitHub repo and is **actively under development**.  
-> The goal is to scale it into a proper `npm` package (e.g., `@gahlautabhinav/cross-chain-intent-sdk`) with a stable, feature‑rich API.
+> **Write intent. Let the protocol handle execution.**
 
 ---
 
-## 📂 Repository structure
+## 🧠 What is this?
 
-At time of writing, the repo is structured like this:
+**Cross-Chain Intent Bridge Protocol** is a **developer-first SDK** that abstracts away the complexity of cross-chain interactions.
 
-```text
-Cross-Chain-Intent-Bridge-Protocol/
-├── packages/
-│   └── intent-sdk/
-│       ├── intent-sdk.js           # Main SDK entry point (this file)
-│       └── package.json
-├── src/
-│   ├── bridgeManager.mjs           # Stellar-side bridge / lock logic
-│   └── ...
-├── contracts/                      # (Example) EVM / Polygon contracts
-│   ├── WXLM.sol
-│   ├── LiquidityPool.sol
-│   └── Staking.sol
-├── scripts/
-│   ├── test-intent.js              # Example script to run executeCrossChainIntent
-│   └── ...
-├── frontend/
-│   └── dapp/                       # Example UI (if present)
-├── .env.example
-├── .gitignore
-├── tsconfig.json                   # If using TypeScript
-├── package.json
-└── README.md                       # This file
+Instead of manually orchestrating:
+
+* bridging
+* wrapping
+* approvals
+* liquidity provision
+* staking
+
+👉 You define **what you want to achieve** — and the SDK executes it across chains.
+
+---
+
+## 💡 Why this matters
+
+Cross-chain UX today is:
+
+* fragmented
+* manual
+* error-prone
+
+This SDK introduces an **intent-driven paradigm**:
+
+```js
+intent: { action: "stake" }
+```
+
+Instead of writing multi-step logic, you just declare the outcome.
+
+---
+
+## ⚙️ Current Architecture
+
+```
+User Intent
+    ↓
+SDK (intent-sdk.js)
+    ↓
+Stellar Lock (bridgeManager.mjs)
+    ↓
+Polygon Execution (ethers.js)
+    ↓
+Unified Proof
 ```
 
 ---
 
-## 🧩 What this SDK does right now
+## 🔗 Chains & Stack
 
-The core module in this repo is:
+* ⭐ **Stellar** → Asset origin (lock layer)
+* 🟣 **Polygon Amoy** → Execution layer
+* 🔐 Smart Contracts:
 
-> `packages/intent-sdk/intent-sdk.js`  
-> exports: `executeCrossChainIntent(params)`
-
-### 🎯 Intent flow
-
-Given an intent definition, this SDK:
-
-1. **Locks assets on Stellar**  
-   - Calls `lockOnStellar(amount)` from `src/bridgeManager.mjs`.  
-   - Returns a Stellar proof (tx hash, etc.).
-
-2. **Executes intent logic on Polygon (Amoy)**  
-   - Mints wrapped XLM (`WXLM`) on the Polygon chain.  
-   - Depending on the intent `action`:
-     - `"bridge"` → only mint + approve.  
-     - `"liquidity"` → adds liquidity to a designated pool.  
-     - `"stake"` → stakes `WXLM` in a staking contract.  
-   - Uses `ethers` to interact with
-     - `WXLM` contract (mint + approve).  
-     - Pool or staking contract (depending on `action`).
-
-3. **Returns a unified proof**  
-   - A JSON‑like object containing:
-     - `stellar` proof (tx, chain, etc.).  
-     - `polygon` proof (mint, approve, action tx hashes).  
-     - `status: "completed"`, timestamp, and intent metadata.
-
-This is **intent‑driven** because:
-- You pass an `intent` object with `action` instead of hard‑coding a specific path.  
-- The same SDK entry point can route to different on‑chain actions on Polygon.
+  * `WXLM.sol` → Wrapped XLM
+  * `LiquidityPool.sol` → LP interactions
+  * `Staking.sol` → Yield layer
 
 ---
 
-## 🚀 Quick start (local usage)
+## 🚀 What the SDK does (Today)
 
-### 1. Clone and install
+### Single entry point:
+
+```js
+executeCrossChainIntent(params)
+```
+
+### Behind the scenes:
+
+### 1️⃣ Lock on Stellar
+
+* Locks XLM via `bridgeManager.mjs`
+* Produces verifiable proof
+
+### 2️⃣ Execute on Polygon
+
+* Mint `WXLM`
+* Approve contracts
+* Route based on intent:
+
+| Intent        | Action        |
+| ------------- | ------------- |
+| `"bridge"`    | Mint only     |
+| `"liquidity"` | Add liquidity |
+| `"stake"`     | Stake WXLM    |
+
+### 3️⃣ Return unified proof
+
+```json
+{
+  "status": "completed",
+  "stellar": { "txHash": "..." },
+  "polygon": {
+    "mintTx": "...",
+    "approveTx": "...",
+    "actionTx": "..."
+  }
+}
+```
+
+---
+
+## 🧪 Quick Start
+
+### 1. Clone
 
 ```bash
 git clone https://github.com/gahlautabhinav/Cross-Chain-Intent-Bridge-Protocol.git
 cd Cross-Chain-Intent-Bridge-Protocol
-
-# Install dependencies
 npm install
-# or
-yarn install
 ```
 
-### 2. Install the SDK in your project
+---
 
-Since this is **not on npm**, install it locally or via GitHub:
+### 2. Install SDK
 
-#### Option A: Local path (mono‑repo‑style)
+#### Local (recommended)
 
 ```bash
-# From your app root
 npm install ../Cross-Chain-Intent-Bridge-Protocol/packages/intent-sdk
 ```
 
-#### Option B: Direct GitHub install
+#### GitHub
 
 ```bash
 npm install git+https://github.com/gahlautabhinav/Cross-Chain-Intent-Bridge-Protocol.git
 ```
 
-Then import it in your code:
-
-```js
-import { executeCrossChainIntent } from "intent-sdk";
-```
-
-> Note: you may need to adjust the import path if your `package.json`’s `name` differs from `intent-sdk`.
-
 ---
 
-## 💻 Example usage: `executeCrossChainIntent`
-
-This is the **current API** exposed by `intent-sdk.js`.
+### 3. Use it
 
 ```js
 import { executeCrossChainIntent } from "intent-sdk";
 
-const params = {
-  intent: {
-    action: "liquidity", // or "stake", "bridge"
-  },
-  stellar: {
-    // (currently minimal, may be expanded later)
-  },
+const result = await executeCrossChainIntent({
+  intent: { action: "liquidity" },
   polygon: {
-    rpcUrl: "https://rpc-amoy.polygon.technology", // or env
-    privateKey: "0x...",
-    wxlmAddr: "0x...",          // WXLM contract
-    liquidityAddr: "0x...",     // Pool
-    stakingAddr: "0x...",       // Staking
+    rpcUrl: process.env.AMOY_RPC_URL,
+    privateKey: process.env.AMOY_PRIVATE_KEY,
+    wxlmAddr: process.env.WXLM_ADDR,
+    liquidityAddr: process.env.LIQUIDITY_ADDR,
   },
-  amount: 100, // in XLM
-};
+  amount: 100,
+});
 
-const result = await executeCrossChainIntent(params);
-
-console.log("✅ Cross‑chain intent completed:");
 console.log(result);
 ```
 
-### What happens internally:
+---
 
-- ✅ **Step 1 – Lock on Stellar**  
-  Calls `lockOnStellar(amount)` and logs the Stellar tx.
+## 🔍 Developer Experience Philosophy
 
-- ✅ **Step 2 – Execute Polygon action**  
-  - Detects `intent.action` and routes to:
-    - `liquidity` → add liquidity.  
-    - `stake` → stake.  
-    - default → bridge‑only (mint + approve).  
-  - Uses `ethers` to:
-    - Mint `WXLM`.  
-    - Approve the pool/staking contract.  
-    - Execute the chosen action.
+This SDK is built around 3 principles:
 
-- ✅ **Step 3 – Unified proof**  
-  Returns a structured object like:
+### 🧩 1. Intent > Transactions
 
-  ```js
-  {
-    timestamp: "2026-03-20T...",
-    intent: { action: "liquidity" },
-    status: "completed",
-    stellar: {
-      txHash: "stellarTxHash123"
-    },
-    polygon: {
-      mintTx: "0xabc...",
-      approveTx: "0xdef...",
-      actionTx: "0xghi..." // liquidity or stake tx
-    }
-  }
-  ```
+You define outcomes, not steps.
+
+### 🔌 2. Plug-and-Play
+
+Minimal setup, maximum execution.
+
+### 🔄 3. Chain Abstraction
+
+Developers shouldn’t care *where* execution happens.
 
 ---
 
-## 🧪 Testing and development
+## 🧱 Repository Structure
 
-### Setting up environment
+```text
+packages/
+  intent-sdk/        → Core SDK
 
-Copy `.env.example` and fill in:
+src/
+  bridgeManager.mjs  → Stellar logic
+
+contracts/
+  WXLM.sol
+  LiquidityPool.sol
+  Staking.sol
+
+scripts/
+  test-intent.js     → Execution example
+
+frontend/
+  dapp/              → Optional UI
+```
+
+---
+
+## ⚠️ Current Status
+
+> 🚧 **Actively evolving — not production ready**
+
+* Not published to npm
+* API is unstable
+* Internal patterns are still being refined
+
+---
+
+## 🛣️ Roadmap
+
+### 🔜 SDK Evolution
+
+* `createIntent()`
+* `getIntentStatus()`
+* `bridgeToChain()`
+
+### 🌍 Multi-Chain Expansion
+
+* Ethereum
+* Solana
+* More L2s
+
+### ⚡ Advanced Intents
+
+* Cross-chain swaps
+* Lending / borrowing
+* Multi-step DeFi strategies
+
+### 🧑‍💻 DevEx Improvements
+
+* TypeScript support
+* Full documentation
+* Error handling + retries
+* Event indexing
+
+---
+
+## 🧠 Vision
+
+This project is moving toward becoming:
+
+> **“The Stripe for cross-chain execution.”**
+
+A unified SDK where:
+
+* Developers define intent
+* Protocol handles execution
+* Chains become implementation detail
+
+---
+
+## 🧪 Testing
 
 ```bash
 cp .env.example .env
-```
-
-Example `.env`:
-
-```env
-AMOY_RPC_URL=https://rpc-amoy.polygon.technology
-AMOY_PRIVATE_KEY=0x...
-WXLM_ADDR=0x...
-STAKING_ADDR=0x...
-LIQUIDITY_ADDR=0x...
-```
-
-### Running a test script
-
-You can create a simple test script, e.g.:
-
-```js
-// scripts/test-intent.js
-import { executeCrossChainIntent } from "../packages/intent-sdk/intent-sdk.js";
-
-const main = async () => {
-  const result = await executeCrossChainIntent({
-    intent: { action: "liquidity" },
-    stellar: {},
-    polygon: {
-      rpcUrl: process.env.AMOY_RPC_URL,
-      privateKey: process.env.AMOY_PRIVATE_KEY,
-      wxlmAddr: process.env.WXLM_ADDR,
-      liquidityAddr: process.env.LIQUIDITY_ADDR,
-    },
-    amount: 10,
-  });
-  console.log(result);
-};
-
-main();
-```
-
-Then run:
-
-```bash
 node scripts/test-intent.js
 ```
 
 ---
 
-## 🧱 Roadmap & planned features
-
-This is an **early, evolving SDK**. Over time, it will be expanded into a **proper SDK** with:
-
-- More granular, stable functions such as:
-  - `createIntent(...)`  
-  - `getIntentStatus(...)`  
-  - `bridgeToEVM(...)` / `bridgeTo[Chain](...)`  
-- Support for:
-  - More chains (Ethereum mainnet, Solana, etc.).  
-  - More intent types (e.g., swaps, cross‑chain lending, complex multi‑step strategies).  
-- Production‑grade error handling, logging, and instrumentation.
-- A proper `npm` package with Typescript types and JSDoc‑style docs.
-
-If you contribute or want to suggest features, see the **Contributing** section below.
-
----
-
 ## 🤝 Contributing
 
-You’re welcome to help turn this into a **fully‑fledged, production‑ready intent SDK**. Contributions we’re especially excited about:
+We’re building something ambitious — contributions are welcome.
 
-- Refactoring and splitting the current monolithic `executeCrossChainIntent` into:
-  - Stellar‑side helpers.  
-  - Polygon‑side helpers.  
-  - Composable intent modules.  
-- Adding TypeScript types and JSDoc / TypeDoc comments.  
-- Writing tests and improving error handling.  
-- Expanding chain support and intent patterns.
+### High-impact areas:
 
-To contribute:
+* Modularizing execution engine
+* Adding new intent types
+* Multi-chain adapters
+* Better logging & observability
 
-1. Fork the repo.  
-2. Create a feature branch.  
-3. Open a PR with a clear description and (where possible) tests.
+### Steps:
+
+1. Fork
+2. Branch
+3. PR 🚀
 
 ---
 
 ## 📜 License
 
-MIT  
-See `LICENSE` in the root of the repo.
-```
+MIT
+
+---
+
+## ⭐ If you like this project
+
+Give it a ⭐ on GitHub — it helps a lot!
+
+---
+
+## 🧩 Final Note
+
+This isn’t just a bridge.
+
+It’s an **execution layer for intent-based Web3.**
