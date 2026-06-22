@@ -1,119 +1,81 @@
-# 🌐 Cross-Chain Intent Bridge Protocol
+# Cross-Chain Intent Bridge Protocol
 
-### ⚡ A Stellar ↔ Polygon SDK for Intent-Driven Cross-Chain Execution
+**A Stellar ↔ Polygon SDK for intent-driven cross-chain execution.**
 
-> **Write intent. Let the protocol handle execution.**
-
----
-
-## 🧠 What is this?
-
-**Cross-Chain Intent Bridge Protocol** is a **developer-first SDK** that abstracts away the complexity of cross-chain interactions.
-
-Instead of manually orchestrating:
-
-* bridging
-* wrapping
-* approvals
-* liquidity provision
-* staking
-
-👉 You define **what you want to achieve** — and the SDK executes it across chains.
+> Write intent. Let the protocol handle execution.
 
 ---
 
-## 💡 Why this matters
+## What is this?
 
-Cross-chain UX today is:
-
-* fragmented
-* manual
-* error-prone
-
-This SDK introduces an **intent-driven paradigm**:
+Cross-Chain Intent Bridge Protocol is a developer-first SDK that abstracts cross-chain complexity. Instead of manually orchestrating bridging, wrapping, approvals, liquidity provision, and staking — you declare **what you want to achieve** and the SDK executes it across chains.
 
 ```js
-intent: { action: "stake" }
+executeCrossChainIntent({ intent: { action: "stake" }, amount: 100, ... })
 ```
-
-Instead of writing multi-step logic, you just declare the outcome.
 
 ---
 
-## ⚙️ Current Architecture
+## Architecture
 
 ```
 User Intent
     ↓
-SDK (intent-sdk.js)
+compileIntent()          ← src/intentCompiler.js
     ↓
-Stellar Lock (bridgeManager.mjs)
+executeCrossChainIntent()  ← packages/intent-sdk/intent-sdk.js
+    ├── lockOnStellar()    ← src/bridgeManager.mjs  (with retry())
+    │       ↓
+    │   [Stellar XLM locked — proof generated]
+    │       ↓
+    └── mintAndExecuteOnPolygon()  ← src/executor.js
+            ↓
+        Mint WXLM → Approve → Route by intent
+            ↓
+report()               ← src/report.js
     ↓
-Polygon Execution (ethers.js)
-    ↓
-Unified Proof
+Unified cross-chain proof
 ```
 
 ---
 
-## 🔗 Chains & Stack
+## Chains & Stack
 
-* ⭐ **Stellar** → Asset origin (lock layer)
-* 🟣 **Polygon Amoy** → Execution layer
-* 🔐 Smart Contracts:
+| Layer | Technology |
+|---|---|
+| Asset origin / lock | Stellar (XLM) |
+| On-chain intent recording | Soroban (Rust) |
+| Execution layer | Polygon Amoy (EVM) |
+| EVM interaction | ethers.js |
+| Bridge SDK | `packages/intent-sdk` |
 
-  * `WXLM.sol` → Wrapped XLM
-  * `LiquidityPool.sol` → LP interactions
-  * `Staking.sol` → Yield layer
+### Smart Contracts
 
----
+**Soroban (Stellar)** — `soroban-intent/contracts/intent_liquidity_demo/src/lib.rs`
+- `IntentLiquidityDemo` — main contract struct
+- `.record_intent()` — records user intent on-chain
+- `.record_liquidity()` — records liquidity events
 
-## 🚀 What the SDK does (Today)
-
-### Single entry point:
-
-```js
-executeCrossChainIntent(params)
-```
-
-### Behind the scenes:
-
-### 1️⃣ Lock on Stellar
-
-* Locks XLM via `bridgeManager.mjs`
-* Produces verifiable proof
-
-### 2️⃣ Execute on Polygon
-
-* Mint `WXLM`
-* Approve contracts
-* Route based on intent:
-
-| Intent        | Action        |
-| ------------- | ------------- |
-| `"bridge"`    | Mint only     |
-| `"liquidity"` | Add liquidity |
-| `"stake"`     | Stake WXLM    |
-
-### 3️⃣ Return unified proof
-
-```json
-{
-  "status": "completed",
-  "stellar": { "txHash": "..." },
-  "polygon": {
-    "mintTx": "...",
-    "approveTx": "...",
-    "actionTx": "..."
-  }
-}
-```
+**EVM (Polygon Amoy)** — `contracts/`
+- `WXLM.sol` — Wrapped XLM token
+- `LiquidityPool.sol` — LP interactions
+- `Staking.sol` — Yield / staking layer
 
 ---
 
-## 🧪 Quick Start
+## Intent Routing
 
-### 1. Clone
+| `intent.action` | Polygon Execution |
+|---|---|
+| `"bridge"` | Mint WXLM only |
+| `"liquidity"` | Mint → Approve → Add liquidity |
+| `"stake"` | Mint → Approve → Stake WXLM |
+
+---
+
+## Quick Start
+
+### 1. Clone & install
 
 ```bash
 git clone https://github.com/gahlautabhinav/Cross-Chain-Intent-Bridge-Protocol.git
@@ -121,31 +83,29 @@ cd Cross-Chain-Intent-Bridge-Protocol
 npm install
 ```
 
----
-
-### 2. Install SDK
-
-#### Local (recommended)
+### 2. Configure environment
 
 ```bash
-npm install ../Cross-Chain-Intent-Bridge-Protocol/packages/intent-sdk
+cp .env.example .env
+# fill in AMOY_RPC_URL, AMOY_PRIVATE_KEY, STELLAR_SECRET, contract addresses
 ```
 
-#### GitHub
+### 3. Deploy contracts (Polygon Amoy)
 
 ```bash
-npm install git+https://github.com/gahlautabhinav/Cross-Chain-Intent-Bridge-Protocol.git
+node scripts/deploy.js
 ```
 
----
-
-### 3. Use it
+### 4. Run
 
 ```js
 import { executeCrossChainIntent } from "intent-sdk";
 
 const result = await executeCrossChainIntent({
   intent: { action: "liquidity" },
+  stellar: {
+    secret: process.env.STELLAR_SECRET,
+  },
   polygon: {
     rpcUrl: process.env.AMOY_RPC_URL,
     privateKey: process.env.AMOY_PRIVATE_KEY,
@@ -158,34 +118,59 @@ const result = await executeCrossChainIntent({
 console.log(result);
 ```
 
----
+### SDK install options
 
-## 🔍 Developer Experience Philosophy
+```bash
+# Local path
+npm install ../Cross-Chain-Intent-Bridge-Protocol/packages/intent-sdk
 
-This SDK is built around 3 principles:
-
-### 🧩 1. Intent > Transactions
-
-You define outcomes, not steps.
-
-### 🔌 2. Plug-and-Play
-
-Minimal setup, maximum execution.
-
-### 🔄 3. Chain Abstraction
-
-Developers shouldn’t care *where* execution happens.
+# GitHub
+npm install git+https://github.com/gahlautabhinav/Cross-Chain-Intent-Bridge-Protocol.git
+```
 
 ---
 
-## 🧱 Repository Structure
+## Return Value
 
-```text
+```json
+{
+  "status": "completed",
+  "intent": { "compiled": true, "action": "liquidity" },
+  "stellar": { "txHash": "...", "proof": "..." },
+  "polygon": {
+    "mintTx": "...",
+    "approveTx": "...",
+    "actionTx": "..."
+  },
+  "report": { "timestamp": "...", "summary": "..." }
+}
+```
+
+---
+
+## Repository Structure
+
+```
 packages/
-  intent-sdk/        → Core SDK
+  intent-sdk/
+    intent-sdk.js          ← executeCrossChainIntent() — main SDK entry
+    README.md              ← SDK API reference
 
 src/
-  bridgeManager.mjs  → Stellar logic
+  bridgeManager.mjs        ← lockOnStellar(), executeCrossChainIntent(), retry()
+  intentCompiler.js        ← compileIntent()
+  executor.js              ← mintAndExecuteOnPolygon()
+  report.js                ← report()
+  sdk-extend.js            ← extended executeCrossChainIntent() variant
+  index.js                 ← main entry point
+  index_copy.js            ← alternate entry (compileIntent + report variant)
+
+soroban-intent/
+  contracts/
+    intent_liquidity_demo/
+      src/
+        lib.rs             ← IntentLiquidityDemo contract
+        test.rs            ← Soroban test suite
 
 contracts/
   WXLM.sol
@@ -193,103 +178,79 @@ contracts/
   Staking.sol
 
 scripts/
-  test-intent.js     → Execution example
+  deploy.js                ← contract deployment
 
-frontend/
-  dapp/              → Optional UI
+demo_use_package.js        ← SDK usage demo
 ```
 
----
-
-## ⚠️ Current Status
-
-> 🚧 **Actively evolving — not production ready**
-
-* Not published to npm
-* API is unstable
-* Internal patterns are still being refined
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed component relationships.
 
 ---
 
-## 🛣️ Roadmap
-
-### 🔜 SDK Evolution
-
-* `createIntent()`
-* `getIntentStatus()`
-* `bridgeToChain()`
-
-### 🌍 Multi-Chain Expansion
-
-* Ethereum
-* Solana
-* More L2s
-
-### ⚡ Advanced Intents
-
-* Cross-chain swaps
-* Lending / borrowing
-* Multi-step DeFi strategies
-
-### 🧑‍💻 DevEx Improvements
-
-* TypeScript support
-* Full documentation
-* Error handling + retries
-* Event indexing
-
----
-
-## 🧠 Vision
-
-This project is moving toward becoming:
-
-> **“The Stripe for cross-chain execution.”**
-
-A unified SDK where:
-
-* Developers define intent
-* Protocol handles execution
-* Chains become implementation detail
-
----
-
-## 🧪 Testing
+## Testing
 
 ```bash
-cp .env.example .env
-node scripts/test-intent.js
+# Soroban contracts
+cd soroban-intent
+cargo test
+
+# Integration (Polygon Amoy)
+node demo_use_package.js
 ```
 
 ---
 
-## 🤝 Contributing
+## Status
 
-We’re building something ambitious — contributions are welcome.
+> **Actively evolving — not production ready**
 
-### High-impact areas:
-
-* Modularizing execution engine
-* Adding new intent types
-* Multi-chain adapters
-* Better logging & observability
-
-### Steps:
-
-1. Fork
-2. Branch
-3. PR 🚀
+- Not published to npm
+- API surface is unstable
+- Soroban contract → EVM proof verification is in progress
 
 ---
 
-## 📜 License
+## Roadmap
+
+**SDK**
+- `createIntent()` / `getIntentStatus()` / `bridgeToChain()`
+- TypeScript types
+- Error handling + retry surface exposed to callers
+
+**Multi-chain**
+- Ethereum mainnet / Arbitrum / Optimism
+- Solana
+
+**Advanced intents**
+- Cross-chain swaps
+- Lending / borrowing
+- Multi-step DeFi strategies
+
+**DevEx**
+- Full API documentation
+- Event indexing
+- Observability hooks
+
+---
+
+## Contributing
+
+High-impact areas:
+- New intent types (extend `executor.js` routing)
+- Multi-chain adapters
+- Soroban proof verification on EVM side
+- Better logging in `report.js`
+
+Steps: Fork → branch → PR.
+
+---
+
+## License
 
 MIT
 
 ---
 
-## 🧩 Final Note
+This isn't just a bridge.
 
-This isn’t just a bridge.
-
-It’s an **execution layer for intent-based Web3.**
+It's an **execution layer for intent-based Web3.**
